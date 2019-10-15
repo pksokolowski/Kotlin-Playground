@@ -1,8 +1,12 @@
+import nmet.NMetExpo
 import using.DisposableExpo
 
 fun main() {
 
-    listOf(DisposableExpo).forEach {
+    listOf(
+        DisposableExpo,
+        NMetExpo
+    ).forEach {
         println(
             """
             
