@@ -1,3 +1,4 @@
+import configurable.ConfigurableProcedureExpo
 import nmet.NMetExpo
 import using.DisposableExpo
 
@@ -5,7 +6,8 @@ fun main() {
 
     listOf(
         DisposableExpo,
-        NMetExpo
+        NMetExpo,
+        ConfigurableProcedureExpo
     ).forEach {
         println(
             """
