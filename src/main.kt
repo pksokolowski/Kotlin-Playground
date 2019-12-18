@@ -1,13 +1,15 @@
 import configurable.ConfigurableProcedureExpo
 import nmet.NMetExpo
 import using.DisposableExpo
+import whenIsReplacement.WhenIsReplacementExpo
 
 fun main() {
 
     listOf(
         DisposableExpo,
         NMetExpo,
-        ConfigurableProcedureExpo
+        ConfigurableProcedureExpo,
+        WhenIsReplacementExpo
     ).forEach {
         println(
             """
