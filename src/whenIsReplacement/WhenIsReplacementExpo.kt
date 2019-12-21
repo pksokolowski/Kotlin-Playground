@@ -21,10 +21,11 @@ import Expo
  */
 object WhenIsReplacementExpo : Expo {
     override fun runSample() {
-        val input = listOf(SubClassA("d"), SubCLassB(4))
+        val input = listOf(SubClassA("d"), SubClassB(4))
 
         runTheWhenIsSolution(input)
         runTheReplacementCandidate(input)
+        runTheAlternativeReplacementCandidate(input)
     }
 
     private fun runTheWhenIsSolution(input: List<BaseClass>) {
@@ -33,7 +34,7 @@ object WhenIsReplacementExpo : Expo {
                 is SubClassA -> {
                     performActionAlpha(case.text)
                 }
-                is SubCLassB -> {
+                is SubClassB -> {
                     performActionBeta(case.number)
                 }
             }
@@ -53,6 +54,12 @@ object WhenIsReplacementExpo : Expo {
         }
         input.forEach { case ->
             case.react(interactor)
+        }
+    }
+
+    private fun runTheAlternativeReplacementCandidate(input: List<BaseClass>){
+        input.forEach { case ->
+            case.handle(this)
         }
     }
 
