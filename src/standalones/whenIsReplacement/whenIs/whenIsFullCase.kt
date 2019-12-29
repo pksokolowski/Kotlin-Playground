@@ -7,13 +7,10 @@ class ErrorSendMessageResponse(val errorCode: Int, val message: String) : SendMe
 class BusinessLogic {
     fun handleResponse(response: SendMessageResponse) {
         when (response) {
-            is SuccessSendMessageResponse -> handleSuccess(response.messageId)
-            is ErrorSendMessageResponse -> handleError(response.errorCode, response.message)
+            is SuccessSendMessageResponse -> println("successfully sent message with id = ${response.messageId}")
+            is ErrorSendMessageResponse -> println("Error no ${response.errorCode}. ${response.message}")
         }
     }
-
-    private fun handleSuccess(messageId: Long) = println("successfully sent message with id = $messageId")
-    private fun handleError(errorCode: Int, message: String) = println("Error no $errorCode. $message")
 }
 
 fun main() {
