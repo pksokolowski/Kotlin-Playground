@@ -31,6 +31,35 @@ val idiomSamples = listOf<() -> String>(
         "a = $a, b = $b"
     },
     {
+        data class Purchase(val value: Int, val isCardTransaction: Boolean)
+        data class User(val name: String, val purchases: List<Purchase>)
+
+        val users = listOf(
+            User(
+                "Amelia",
+                listOf(
+                    Purchase(650, false),
+                    Purchase(300, false),
+                    Purchase(400, true)
+                )
+            ),
+            User(
+                "Beth",
+                listOf(
+                    Purchase(300, true),
+                    Purchase(400, true)
+                )
+            )
+        )
+
+        val mostlyCashUsers = users.filter { user ->
+            val (cardTransactions, cashTransactions) = user.purchases.partition { it.isCardTransaction }
+            cardTransactions.size < cashTransactions.size
+        }.map { it.name }
+
+        "Users who preferred cash: $mostlyCashUsers"
+    },
+    {
         data class Car(val wheelsCount: Int)
 
         val cars = listOf(
