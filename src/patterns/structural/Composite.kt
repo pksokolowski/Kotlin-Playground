@@ -1,7 +1,5 @@
 package patterns.structural
 
-open class Component(open val price: Int)
-
 open class Composite : Component(0) {
     private val components = mutableListOf<Component>()
 
@@ -12,6 +10,8 @@ open class Composite : Component(0) {
         this.components.addAll(components)
     }
 }
+
+open class Component(open val price: Int)
 
 class Plane : Composite()
 class Wings : Component(1_800_000)
