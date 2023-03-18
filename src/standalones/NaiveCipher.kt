@@ -1,12 +1,14 @@
 package standalones
 
+import java.nio.ByteBuffer
 import kotlin.experimental.xor
 import kotlin.math.ceil
 import kotlin.math.floor
 
 private val constant = "aaaabbbbccccdddd".toByteArray(charset = Charsets.UTF_8)
 private val CONSTANT_LEN = 16
-private const val NONCE_LEN = 16
+private const val BLOCK_NUMBER_LEN = 4
+private const val NONCE_LEN = 12
 private const val KEY_LEN = 32
 private const val BLOCK_SIZE = 64
 
@@ -20,34 +22,43 @@ private fun ByteArray.applyNaiveIdempotentCipher(nonce: ByteArray, key: ByteArra
     require(nonce.size == NONCE_LEN) { "nonce size is ${nonce.size} bytes while len of $NONCE_LEN is required" }
 
     // create initial internal state
-    var block = ByteArray(BLOCK_SIZE)
+    val block = ByteArray(BLOCK_SIZE)
     constant.copyInto(block, 0, 0)
     key.copyInto(block, CONSTANT_LEN, 0)
-    nonce.copyInto(block, CONSTANT_LEN + KEY_LEN, 0)
+    block.setBlockNumber(1)
+    nonce.copyInto(block, CONSTANT_LEN + KEY_LEN + BLOCK_NUMBER_LEN, 0)
 
     // generate stream key
     val streamKey = ByteArray(this.size)
     val blocksNeeded = ceil(this.size / BLOCK_SIZE.toDouble()).toInt()
     val fullBlocksFitting = floor(this.size / BLOCK_SIZE.toDouble()).toInt()
-
     repeat(blocksNeeded) { blockNumber ->
+        // update block
+        block.setBlockNumber(blockNumber)
+
         // internal state transformation
-        val newBlock = ByteArray(block.size)
-        block.copyInto(newBlock)
-        repeat(BLOCK_SIZE) { newBlock[it] = newBlock[it].rotateLeft(3)}
+        val transformedBlock = ByteArray(block.size)
+        block.copyInto(transformedBlock)
+        repeat(BLOCK_SIZE) { transformedBlock[it] = transformedBlock[it].rotateLeft(3) }
 
         // output streamKey chunk
-        val chunk = block xor newBlock
+        val chunk = block xor transformedBlock
         val wantedLen =
             if (blockNumber + 1 < fullBlocksFitting || fullBlocksFitting == blocksNeeded) chunk.size else streamKey.size - (fullBlocksFitting * BLOCK_SIZE)
         chunk.copyInto(streamKey, blockNumber * chunk.size, 0, wantedLen)
-
-        // update block
-        block = newBlock
     }
 
     // apply streamKey
     return this xor streamKey
+}
+
+private fun ByteArray.setBlockNumber(blockNumber: Int) {
+    val initialIndex = CONSTANT_LEN + KEY_LEN
+    val buffer = ByteBuffer.allocate(BLOCK_NUMBER_LEN).also {
+        it.putInt(blockNumber)
+    }
+    val bytesOfNumber = ByteArray(BLOCK_NUMBER_LEN) { buffer[it] }
+    bytesOfNumber.copyInto(this, initialIndex, BLOCK_NUMBER_LEN)
 }
 
 private infix fun ByteArray.xor(other: ByteArray): ByteArray {
@@ -60,7 +71,7 @@ private infix fun ByteArray.xor(other: ByteArray): ByteArray {
 }
 
 fun main() {
-    val nonce = "aaaaaaaaaaaaaaaa".toByteArray()
+    val nonce = "aaaaaaaaaaaa".toByteArray()
     val key = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".toByteArray()
     val plainText = "abc".toByteArray()
 
