@@ -5,12 +5,15 @@ import kotlin.experimental.xor
 import kotlin.math.ceil
 import kotlin.math.floor
 
+
 private val constant = "aaaabbbbccccdddd".toByteArray(charset = Charsets.UTF_8)
 private val CONSTANT_LEN = 16
 private const val BLOCK_NUMBER_LEN = 4
 private const val NONCE_LEN = 12
 private const val KEY_LEN = 32
 private const val BLOCK_SIZE = 64
+private const val ROUNDS_NUMBER = 20
+private const val SUB_ROUNDS_NUMBER = 4
 
 /**
  * The cipher is a naive, educational-purposes-only implementation and design.
@@ -28,41 +31,37 @@ private fun ByteArray.applyNaiveIdempotentCipher(nonce: ByteArray, key: ByteArra
     // block number is skipped here, will be set later
     nonce.copyInto(block, CONSTANT_LEN + KEY_LEN + BLOCK_NUMBER_LEN, 0)
 
+    // convert the block to a 32bit integers array, for convenience in later calculations
+    val intBlock = IntArray(16) { block.extractIntAt(it * 4) }
+
     // generate stream key
     val streamKey = ByteArray(this.size)
     val blocksNeeded = ceil(this.size / BLOCK_SIZE.toDouble()).toInt()
     val fullBlocksFitting = floor(this.size / BLOCK_SIZE.toDouble()).toInt()
     repeat(blocksNeeded) { blockNumber ->
         // update block
-        block.setBlockNumber(blockNumber)
+        intBlock.setBlockNumber(blockNumber)
 
         // internal state transformation
-        val transformedBlock = ByteArray(block.size)
-        block.copyInto(transformedBlock)
-        repeat(BLOCK_SIZE) { transformedBlock[it] = transformedBlock[it].rotateLeft(3) }
+        val transformedBlock = getTransformedBlock(intBlock)
 
         // output streamKey chunk
-        val chunk = block xor transformedBlock
+        val chunk = intBlock xor transformedBlock
         val wantedLen =
             if (blockNumber + 1 < fullBlocksFitting || fullBlocksFitting == blocksNeeded) {
                 chunk.size
             } else {
                 streamKey.size - (fullBlocksFitting * BLOCK_SIZE)
             }
-        chunk.copyInto(streamKey, blockNumber * chunk.size, 0, wantedLen)
+        chunk.toByteArray().copyInto(streamKey, blockNumber * chunk.size, 0, wantedLen)
     }
 
     // apply streamKey
     return this xor streamKey
 }
 
-private fun ByteArray.setBlockNumber(blockNumber: Int) {
-    val initialIndex = CONSTANT_LEN + KEY_LEN
-    val buffer = ByteBuffer.allocate(BLOCK_NUMBER_LEN).also {
-        it.putInt(blockNumber)
-    }
-    val bytesOfNumber = ByteArray(BLOCK_NUMBER_LEN) { buffer[it] }
-    bytesOfNumber.copyInto(this, initialIndex, BLOCK_NUMBER_LEN)
+private fun IntArray.setBlockNumber(blockNumber: Int) {
+    this[12] = blockNumber
 }
 
 private infix fun ByteArray.xor(other: ByteArray): ByteArray {
@@ -73,6 +72,84 @@ private infix fun ByteArray.xor(other: ByteArray): ByteArray {
         }
     }
 }
+
+private infix fun IntArray.xor(other: IntArray): IntArray {
+    require(this.size == other.size) { "cannot xor byteArrays of diff lengths" }
+    return IntArray(this.size).also { output ->
+        repeat(this.size) { i ->
+            output[i] = this[i] xor other[i]
+        }
+    }
+}
+
+private fun getTransformedBlock(block: IntArray): IntArray {
+    val transformedBlock = IntArray(block.size) { block[it] }
+
+    repeat(ROUNDS_NUMBER) { roundNumber ->
+        val roundType = if (roundNumber.mod(2) == 0) RoundType.HORIZONTAL else RoundType.DIAGONAL
+        runRound(transformedBlock, roundType)
+    }
+
+    return transformedBlock
+}
+
+private fun runRound(block: IntArray, roundType: RoundType) {
+    repeat(SUB_ROUNDS_NUMBER) { subRoundNumber ->
+        val i = when (roundType) {
+            RoundType.HORIZONTAL -> Indexes(
+                a = 0 + subRoundNumber,
+                b = 4 + subRoundNumber,
+                c = 8 + subRoundNumber,
+                d = 12 + subRoundNumber,
+            )
+            RoundType.DIAGONAL -> Indexes(
+                a = 0 + subRoundNumber,
+                b = 4 + (1 + subRoundNumber).mod(4),
+                c = 8 + (2 + subRoundNumber).mod(4),
+                d = 12 + (3 + subRoundNumber).mod(4),
+            )
+        }
+
+        block[i.a] = block[i.a] + block[i.b]
+        block[i.d] = block[i.d].xor(block[i.a])
+        block[i.d] = block[i.d].rotateLeft(16)
+        block[i.c] = block[i.c] + block[i.d]
+        block[i.b] = block[i.b].xor(block[i.c])
+        block[i.b] = block[i.b].rotateLeft(12)
+        block[i.a] = block[i.a] + block[i.b]
+        block[i.d] = block[i.d].xor(block[i.a])
+        block[i.d] = block[i.d].rotateLeft(8)
+        block[i.c] = block[i.c] + block[i.d]
+        block[i.b] = block[i.b].xor(block[i.c])
+        block[i.b] = block[i.b].rotateLeft(7)
+    }
+}
+
+private fun ByteArray.extractIntAt(startIndex: Int): Int {
+    val bytes = this.sliceArray(startIndex..startIndex + 3)
+        .apply { reverse() }
+    return ByteBuffer.wrap(bytes).int
+}
+
+private fun IntArray.toByteArray(): ByteArray {
+    val byteBuffer = ByteBuffer.allocate(this.size * 4)
+    val intBuffer = byteBuffer.asIntBuffer()
+    intBuffer.put(this)
+
+    return byteBuffer.array()
+}
+
+private enum class RoundType {
+    HORIZONTAL,
+    DIAGONAL,
+}
+
+private class Indexes(
+    val a: Int,
+    val b: Int,
+    val c: Int,
+    val d: Int,
+)
 
 fun main() {
     val nonce = "aaaaaaaaaaaa".toByteArray()
