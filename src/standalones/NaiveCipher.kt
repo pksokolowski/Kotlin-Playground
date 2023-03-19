@@ -64,24 +64,6 @@ private fun IntArray.setBlockNumber(blockNumber: Int) {
     this[12] = blockNumber
 }
 
-private infix fun ByteArray.xor(other: ByteArray): ByteArray {
-    require(this.size == other.size) { "cannot xor byteArrays of diff lengths" }
-    return ByteArray(this.size).also { output ->
-        repeat(this.size) { i ->
-            output[i] = this[i] xor other[i]
-        }
-    }
-}
-
-private infix fun IntArray.xor(other: IntArray): IntArray {
-    require(this.size == other.size) { "cannot xor byteArrays of diff lengths" }
-    return IntArray(this.size).also { output ->
-        repeat(this.size) { i ->
-            output[i] = this[i] xor other[i]
-        }
-    }
-}
-
 private fun getTransformedBlock(block: IntArray): IntArray {
     val transformedBlock = IntArray(block.size) { block[it] }
 
@@ -122,6 +104,24 @@ private fun runRound(block: IntArray, roundType: RoundType) {
         block[i.c] = block[i.c] + block[i.d]
         block[i.b] = block[i.b].xor(block[i.c])
         block[i.b] = block[i.b].rotateLeft(7)
+    }
+}
+
+private infix fun ByteArray.xor(other: ByteArray): ByteArray {
+    require(this.size == other.size) { "cannot xor byteArrays of diff lengths" }
+    return ByteArray(this.size).also { output ->
+        repeat(this.size) { i ->
+            output[i] = this[i] xor other[i]
+        }
+    }
+}
+
+private infix fun IntArray.xor(other: IntArray): IntArray {
+    require(this.size == other.size) { "cannot xor byteArrays of diff lengths" }
+    return IntArray(this.size).also { output ->
+        repeat(this.size) { i ->
+            output[i] = this[i] xor other[i]
+        }
     }
 }
 
