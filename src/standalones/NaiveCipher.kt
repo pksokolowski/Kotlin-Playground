@@ -25,7 +25,7 @@ private fun ByteArray.applyNaiveIdempotentCipher(nonce: ByteArray, key: ByteArra
     val block = ByteArray(BLOCK_SIZE)
     constant.copyInto(block, 0, 0)
     key.copyInto(block, CONSTANT_LEN, 0)
-    block.setBlockNumber(1)
+    // block number is skipped here, will be set later
     nonce.copyInto(block, CONSTANT_LEN + KEY_LEN + BLOCK_NUMBER_LEN, 0)
 
     // generate stream key
@@ -44,7 +44,11 @@ private fun ByteArray.applyNaiveIdempotentCipher(nonce: ByteArray, key: ByteArra
         // output streamKey chunk
         val chunk = block xor transformedBlock
         val wantedLen =
-            if (blockNumber + 1 < fullBlocksFitting || fullBlocksFitting == blocksNeeded) chunk.size else streamKey.size - (fullBlocksFitting * BLOCK_SIZE)
+            if (blockNumber + 1 < fullBlocksFitting || fullBlocksFitting == blocksNeeded) {
+                chunk.size
+            } else {
+                streamKey.size - (fullBlocksFitting * BLOCK_SIZE)
+            }
         chunk.copyInto(streamKey, blockNumber * chunk.size, 0, wantedLen)
     }
 
