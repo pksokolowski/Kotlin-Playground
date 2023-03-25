@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalUnsignedTypes::class)
+
 package standalones
 
 import java.nio.ByteBuffer
@@ -6,8 +8,8 @@ import kotlin.math.ceil
 import kotlin.math.floor
 
 
-private val constant = "aaaabbbbccccdddd".toByteArray(charset = Charsets.UTF_8)
-private val CONSTANT_LEN = 16
+private val constant = "expand 32-byte k".toByteArray(charset = Charsets.UTF_8)
+private const val CONSTANT_LEN = 16
 private const val BLOCK_NUMBER_LEN = 4
 private const val NONCE_LEN = 12
 private const val KEY_LEN = 32
@@ -152,6 +154,7 @@ private class Indexes(
 )
 
 fun main() {
+    checkAgainstTestVector()
     val nonce = "aaaaaaaaaaaa".toByteArray()
     val key = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".toByteArray()
     val plainText = "abc".toByteArray()
@@ -161,10 +164,51 @@ fun main() {
 
     println(
         """Encrypted: ${plainText.joinToString()} and got:
-        |${cipherText.joinToString()}
+        |${cipherText.toUByteArray().joinToString()}
         |which in turn was deciphered into:
-        |${deciphered.joinToString()}
+        |${deciphered.toUByteArray().joinToString()}
         |which is ${if (deciphered.contentEquals(plainText)) "equal" else "not equal"} to the original value.
     """.trimMargin()
     )
+}
+
+@OptIn(ExperimentalUnsignedTypes::class)
+fun checkAgainstTestVector() {
+    val nonce = ByteArray(12) { 0x00 }
+    val key = ByteArray(32) { 0x00 }
+    // all zeros because they are a neutral element of XOR, so the ciphertext will be just a stream key
+    val plainText = ByteArray(64) { 0x00 }
+
+    val cipherText = plainText.applyNaiveIdempotentCipher(nonce, key).toUByteArray()
+
+    val expectedStreamKey = ubyteArrayOf(
+        0x9fu, 0x07u, 0xe7u, 0xbeu, 0x55u, 0x51u, 0x38u, 0x7au, 0x98u, 0xbau, 0x97u,
+        0x7cu, 0x73u, 0x2du, 0x08u, 0x0du, 0xcbu, 0x0fu, 0x29u, 0xa0u, 0x48u, 0xe3u, 0x65u, 0x69u, 0x12u, 0xc6u, 0x53u,
+        0x3eu, 0x32u, 0xeeu, 0x7au, 0xedu, 0x29u, 0xb7u, 0x21u, 0x76u, 0x9cu, 0xe6u, 0x4eu, 0x43u, 0xd5u, 0x71u, 0x33u,
+        0xb0u, 0x74u, 0xd8u, 0x39u, 0xd5u, 0x31u, 0xedu, 0x1fu, 0x28u, 0x51u, 0x0au, 0xfbu, 0x45u, 0xacu, 0xe1u, 0x0au,
+        0x1fu, 0x4bu, 0x79u, 0x4du, 0x6fu
+    )
+
+    println(
+        """
+        Expected:
+        ${expectedStreamKey.joinToString()}
+        got:
+        ${cipherText.joinToString()}
+        ${if (expectedStreamKey.contentEquals(cipherText)) "correct" else "incorrect against test vector"} 
+    """.trimIndent()
+    )
+}
+
+fun kopkop() {
+    val input =
+        """
+            9f 07 e7 be 55 51 38 7a 98 ba 97 7c 73 2d 08 0d
+            cb 0f 29 a0 48 e3 65 69 12 c6 53 3e 32 ee 7a ed
+            29 b7 21 76 9c e6 4e 43 d5 71 33 b0 74 d8 39 d5
+            31 ed 1f 28 51 0a fb 45 ac e1 0a 1f 4b 79 4d 6f
+        """.trimIndent()
+
+    val output = input.replace("\n", " ").split(" ").map { "0x${it}u" }.joinToString()
+    println(output)
 }
