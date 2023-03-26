@@ -40,22 +40,24 @@ private fun ByteArray.applyNaiveIdempotentCipher(nonce: ByteArray, key: ByteArra
     val streamKey = ByteArray(this.size)
     val blocksNeeded = ceil(this.size / BLOCK_SIZE.toDouble()).toInt()
     val fullBlocksFitting = floor(this.size / BLOCK_SIZE.toDouble()).toInt()
-    repeat(blocksNeeded) { blockNumber ->
-        // update block
-        intBlock.setBlockNumber(blockNumber)
+    repeat(blocksNeeded) { blockIndex ->
+        // update block // block counter will start with 1, so one is added
+        intBlock.setBlockNumber(blockIndex + 1)
 
         // internal state transformation
         val transformedBlock = getTransformedBlock(intBlock)
 
         // output streamKey chunk
-        val chunk = intBlock xor transformedBlock
+        val chunk = intBlock.mapIndexed { i, originWord -> originWord + transformedBlock[i] }.toIntArray()
+        val byteChunk = chunk.toByteArray()
         val wantedLen =
-            if (blockNumber + 1 < fullBlocksFitting || fullBlocksFitting == blocksNeeded) {
-                chunk.size
+            if (blockIndex + 1 < fullBlocksFitting || fullBlocksFitting == blocksNeeded) {
+                byteChunk.size
             } else {
                 streamKey.size - (fullBlocksFitting * BLOCK_SIZE)
             }
-        chunk.toByteArray().copyInto(streamKey, blockNumber * chunk.size, 0, wantedLen)
+
+        byteChunk.copyInto(streamKey, blockIndex * byteChunk.size, 0, wantedLen)
     }
 
     // apply streamKey
@@ -174,6 +176,7 @@ fun main() {
 
 @OptIn(ExperimentalUnsignedTypes::class)
 fun checkAgainstTestVector() {
+    println("------")
     val nonce = ByteArray(12) { 0x00 }
     val key = ByteArray(32) { 0x00 }
     // all zeros because they are a neutral element of XOR, so the ciphertext will be just a stream key
